@@ -1,11 +1,9 @@
 services:
-  # Backend (Laravel) - Define this first so frontend can link to it
+  # Backend (Laravel)
   - type: web
     name: fintrack-backend
-    runtime: php
+    runtime: docker
     rootDirectory: backend
-    buildCommand: composer install --no-dev && php artisan config:cache
-    startCommand: php artisan serve --host=0.0.0.0 --port=$PORT
     envVars:
       - key: APP_KEY
         generateValue: true
@@ -21,10 +19,8 @@ services:
   # Frontend (React/Vite)
   - type: web
     name: fintrack-frontend
-    runtime: static
+    runtime: docker
     rootDirectory: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
         fromService:
