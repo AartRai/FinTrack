@@ -1,8 +1,7 @@
 services:
   # Frontend (React/Vite)
-  - type: web
+  - type: static
     name: fintrack-frontend
-    runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     rootDirectory: frontend
