@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --surface: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --muted: 215 16% 47%;
+    --border: 214 32% 91%;
+    --primary: 142 71% 45%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 142 71% 45%;
+  }
+
+  .dark {
+    --background: 222 47% 5%;
+    --surface: 222 47% 8%;
+    --foreground: 210 40% 98%;
+    --muted: 215 20% 65%;
+    --border: 217 33% 17%;
+    --primary: 142 71% 45%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 142 71% 45%;
+  }
+
+  body {
+    @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))] font-sans antialiased transition-colors duration-300;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-[hsl(var(--surface))] rounded-2xl shadow-sm border border-[hsl(var(--border))] p-6 transition-all duration-300;
+  }
+  .input-field {
+    @apply w-full rounded-lg border-[hsl(var(--border))] bg-[hsl(var(--surface))] text-[hsl(var(--foreground))] px-4 py-2.5 outline-none focus:border-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--primary))/20] transition-all;
+  }
+  .btn-primary {
+    @apply bg-[hsl(var(--primary))] hover:brightness-110 text-white font-medium rounded-lg px-4 py-2.5 transition-all focus:ring-2 focus:ring-[hsl(var(--primary))/50] outline-none disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .sidebar-link-active {
+    @apply bg-primary-50 text-primary-600 dark:bg-primary-950/30 dark:text-primary-400;
+  }
+  .sidebar-link-inactive {
+    @apply text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-900/50 dark:hover:text-slate-100;
+  }
+}
+
+/* Custom scrollbar for dark mode */
+.dark ::-webkit-scrollbar {
+  width: 10px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 5px;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
