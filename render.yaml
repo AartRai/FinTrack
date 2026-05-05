@@ -1,0 +1,33 @@
+services:
+  # Frontend (React/Vite)
+  - type: web
+    name: fintrack-frontend
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    rootDirectory: frontend
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: fintrack-backend
+          type: web
+          property: host
+
+  # Backend (Laravel)
+  - type: web
+    name: fintrack-backend
+    runtime: php
+    rootDirectory: backend
+    buildCommand: composer install --no-dev && php artisan config:cache
+    startCommand: php artisan serve --host=0.0.0.0 --port=$PORT
+    envVars:
+      - key: APP_KEY
+        generateValue: true
+      - key: DB_CONNECTION
+        value: mongodb
+      - key: DB_DSN
+        sync: false # You will need to provide your MongoDB Atlas DSN in Render dashboard
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
