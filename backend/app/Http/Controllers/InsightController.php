@@ -3,38 +3,34 @@
 namespace App\Http\Controllers;
 
 use App\Models\Expense;
+use App\Models\Income;
+use App\Models\Goal;
+use App\Models\Budget;
 use Illuminate\Http\Request;
 
 class InsightController extends Controller
 {
     public function predictions(Request $request)
     {
-        $user_id = $request->user()->id;
+        $user_id = $request->user()->_id;
         
-        // Simple prediction: average of all expenses.
-        // In a real app, group by month for the last 3-6 months.
         $totalExpenses = Expense::where('user_id', $user_id)->sum('amount');
         $expenseCount = Expense::where('user_id', $user_id)->count();
         
-        // Assume avg expense per entry * 30 to get a rough monthly estimate if we don't have months
-        // Better yet: just return a mock prediction based on recent expenses.
-        
-        $predictedExpense = 0;
+        $predictedExpense = 1500;
         if ($expenseCount > 0) {
-            $predictedExpense = ($totalExpenses / $expenseCount) * 15; // random factor for mock
-        } else {
-            $predictedExpense = 1500; // default
+            $predictedExpense = ($totalExpenses / $expenseCount) * 12; // Adjusted factor
         }
 
         return response()->json([
             'predicted_expense' => round($predictedExpense, 2),
-            'recommendation' => 'Based on your recent trends, try reducing dining out to save an extra $50 this month.'
+            'recommendation' => __('messages.goals.reached', ['name' => 'Savings Goal']) // Placeholder for localized suggestion
         ]);
     }
 
     public function analyzeSpending(Request $request)
     {
-        $user_id = $request->user()->id;
+        $user_id = $request->user()->_id;
         $expenses = Expense::where('user_id', $user_id)
             ->where('date', '>=', now()->startOfMonth())
             ->get();
@@ -43,87 +39,107 @@ class InsightController extends Controller
         $categories = $expenses->groupBy('category')->map->sum('amount');
         
         $insights = [];
-        
         if ($total > 0) {
             foreach ($categories as $category => $amount) {
                 $percent = ($amount / $total) * 100;
-                if ($percent > 40) {
-                    $insights[] = "You've spent " . round($percent) . "% of your budget on $category. Consider looking for ways to cut back here.";
+                if ($percent > 35) {
+                    $insights[] = "Your $category spending is high (" . round($percent) . "% of total). Consider setting a limit for this category.";
                 }
             }
         }
 
         if (empty($insights)) {
-            $insights[] = "Your spending is well-balanced this month. Keep it up!";
+            $insights[] = "Great job! Your spending is well-distributed across categories.";
         }
 
         return response()->json([
             'total_spent' => $total,
             'category_breakdown' => $categories,
             'insights' => $insights,
-            'suggestion' => $total > 5000 ? "Try setting a tighter budget for next month to boost your savings." : "You're on track to meet your savings goals."
+            'suggestion' => $total > 10000 ? "You're spending quite a bit this month. Have you reviewed your non-essentials?" : "You're doing great at managing your outflow."
         ]);
     }
 
     public function chat(Request $request)
     {
-        $request->validate([
-            'message' => 'required|string'
-        ]);
+        $request->validate(['message' => 'required|string']);
 
         $user = $request->user();
         $message = strtolower($request->message);
         
-        // Fetch context for "AI"
-        $expenses = Expense::where('user_id', $user->id)
-            ->where('date', '>=', now()->startOfMonth())
-            ->get();
-        $totalSpent = $expenses->sum('amount');
+        // Context Gathering
+        $thisMonth = now()->format('Y-m');
+        $expenses = Expense::where('user_id', $user->_id)->where('date', 'like', "$thisMonth%")->get();
+        $incomes = Income::where('user_id', $user->_id)->where('date', 'like', "$thisMonth%")->get();
+        $goals = Goal::where('user_id', $user->_id)->get();
+        $budget = Budget::where('user_id', $user->_id)->where('month', $thisMonth)->first();
         
-        // Use a default or fetch from budget table if exists (assuming it exists based on routes)
-        $budget = \App\Models\Budget::where('user_id', $user->id)
-            ->where('month', now()->format('Y-m'))
-            ->first();
-        $budgetLimit = $budget ? $budget->amount : 50000; // fallback
+        $totalSpent = $expenses->sum('amount');
+        $totalIncome = $incomes->sum('amount');
+        $budgetLimit = $budget ? $budget->amount : 50000;
+        
+        $reply = "I'm your FinTrack AI assistant. I can help you with your budget, goals, and spending analysis. What's on your mind?";
 
-        $reply = "I'm your FinTrack AI assistant. I can help you understand your spending patterns.";
-
-        if (str_contains($message, 'strategy') || str_contains($message, 'how to') || str_contains($message, 'maintain') || str_contains($message, 'advice')) {
+        // Logic for different queries
+        if ($this->matches($message, ['strategy', 'advice', 'help', 'tips'])) {
             $strategies = [
-                "I recommend the 50/30/20 rule: 50% for needs, 30% for wants, and 20% for savings. It's a gold standard for personal finance.",
-                "Try the 'Pay Yourself First' strategy. Move 10-20% of your income to savings as soon as you get paid, before you spend on anything else.",
-                "To maintain your budget, try checking your FinTrack dashboard every morning. Awareness is the best tool for control.",
-                "If you're over budget in one category, try to cut back in another for the rest of the month to balance it out."
+                "I suggest the 50/30/20 rule: 50% for Needs, 30% for Wants, and 20% for Savings/Debt.",
+                "Try 'Zero-Based Budgeting' where every rupee is assigned a job before the month begins.",
+                "Maintain your budget by tracking daily. Small leaks sink big ships!",
+                "Always build an emergency fund of 3-6 months' expenses before aggressive investing."
             ];
             $reply = $strategies[array_rand($strategies)];
-        } elseif (str_contains($message, 'how') && (str_contains($message, 'spending') || str_contains($message, 'spent'))) {
-            $reply = "This month, you've spent ₹" . number_format($totalSpent) . ". ";
-            if ($totalSpent > ($budgetLimit * 0.8)) {
-                $reply .= "You're approaching your budget limit of ₹" . number_format($budgetLimit) . ". It might be time to be more cautious with non-essential spending.";
+        } elseif ($this->matches($message, ['spent', 'how much', 'expense', 'spending'])) {
+            $reply = "You've spent ₹" . number_format($totalSpent) . " this month. ";
+            if ($totalSpent > $budgetLimit) {
+                $reply .= "Warning: You are OVER your budget of ₹" . number_format($budgetLimit) . " by ₹" . number_format($totalSpent - $budgetLimit) . "!";
             } else {
-                $reply .= "You're well within your budget limit of ₹" . number_format($budgetLimit) . ". Great job staying on track!";
+                $reply .= "You have ₹" . number_format($budgetLimit - $totalSpent) . " remaining in your monthly budget.";
             }
-        } elseif (str_contains($message, 'budget')) {
-            $percent = $budgetLimit > 0 ? round(($totalSpent / $budgetLimit) * 100) : 0;
-            $reply = "Your current budget is ₹" . number_format($budgetLimit) . ". You have utilized " . $percent . "% of it so far this month.";
-        } elseif (str_contains($message, 'analyze') || str_contains($message, 'insight')) {
-            $topCategory = $expenses->groupBy('category')->map->sum('amount')->sortDesc()->head(1);
-            if ($topCategory->isNotEmpty()) {
-                $catName = $topCategory->keys()->first();
-                $catAmount = $topCategory->first();
-                $reply = "Analyzing your spending... Your highest expense category is '$catName' at ₹" . number_format($catAmount) . ". Reducing this by just 10% could save you ₹" . number_format($catAmount * 0.1) . " this month!";
+        } elseif ($this->matches($message, ['income', 'earned', 'salary'])) {
+            $reply = "Your total income recorded this month is ₹" . number_format($totalIncome) . ". ";
+            if ($totalIncome > $totalSpent) {
+                $reply .= "You're currently in the green with a surplus of ₹" . number_format($totalIncome - $totalSpent) . "!";
             } else {
-                $reply = "I don't see enough expense data yet to give a deep analysis. Try adding some transactions first!";
+                $reply .= "Be careful: Your expenses (₹" . number_format($totalSpent) . ") are exceeding your income!";
             }
-        } elseif (str_contains($message, 'invest')) {
-            $reply = "Based on your current savings potential, I recommend looking into low-cost Index Funds or ETFs. But first, ensure you have at least 3 months of expenses in an emergency fund!";
-        } elseif (str_contains($message, 'save') || str_contains($message, 'saving')) {
-            $potentialSavings = max(0, $budgetLimit - $totalSpent);
-            $reply = "You currently have a potential savings gap of ₹" . number_format($potentialSavings) . " for this month. Automating a transfer of even 10% of your income at the start of the month is a proven way to build wealth.";
+        } elseif ($this->matches($message, ['goal', 'target', 'saving'])) {
+            if ($goals->isEmpty()) {
+                $reply = "You haven't set any financial goals yet. Setting a goal like 'Emergency Fund' or 'New Car' can help you stay motivated!";
+            } else {
+                $activeGoals = $goals->count();
+                $completed = $goals->where('current', '>=', 'target')->count();
+                $reply = "You have $activeGoals active goal(s). ";
+                if ($completed > 0) $reply .= "Awesome! You've already reached $completed of them. ";
+                
+                $nearest = $goals->sortByDesc(fn($g) => ($g->current / $g->target))->first();
+                if ($nearest && $nearest->current < $nearest->target) {
+                    $percent = round(($nearest->current / $nearest->target) * 100);
+                    $reply .= "You are closest to reaching '{$nearest->title}' ($percent% complete). Keep going!";
+                }
+            }
+        } elseif ($this->matches($message, ['invest', 'stock', 'crypto', 'growth'])) {
+            $reply = "For long-term growth, consider low-cost Index Funds or blue-chip stocks. If you're interested in crypto, keep it to a small percentage (e.g., 5%) of your portfolio due to high volatility.";
+        } elseif ($this->matches($message, ['budget', 'limit'])) {
+            $reply = "Your budget for this month is ₹" . number_format($budgetLimit) . ". You have utilized " . round(($totalSpent / max(1, $budgetLimit)) * 100) . "% of it.";
+        } elseif ($this->matches($message, ['analyze', 'insight', 'pattern'])) {
+            $topCat = $expenses->groupBy('category')->map->sum('amount')->sortDesc()->first();
+            $catName = $expenses->groupBy('category')->map->sum('amount')->sortDesc()->keys()->first();
+            if ($catName) {
+                $reply = "Analysis: Your biggest expense is '$catName' (₹" . number_format($topCat) . "). If you cut this by 15%, you could save ₹" . number_format($topCat * 0.15) . " this month!";
+            } else {
+                $reply = "I need more transaction data to identify patterns. Add some expenses first!";
+            }
         }
 
-        return response()->json([
-            'reply' => $reply
-        ]);
+        return response()->json(['reply' => $reply]);
+    }
+
+    private function matches($message, $keywords)
+    {
+        foreach ($keywords as $word) {
+            if (str_contains($message, $word)) return true;
+        }
+        return false;
     }
 }

@@ -2,32 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdateProfileRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class ProfileController extends Controller
 {
-    public function update(Request $request)
+    public function update(UpdateProfileRequest $request)
     {
         $user = $request->user();
 
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $user->_id . ',_id',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        $user->update([
-            'name' => $request->name,
-            'email' => $request->email,
-        ]);
+        $user->update($request->validated());
 
         return response()->json([
-            'message' => 'Profile updated successfully',
+            'message' => __('messages.profile.updated'),
             'user' => $user
         ]);
     }
@@ -41,11 +30,12 @@ class ProfileController extends Controller
         $user = $request->user();
 
         if ($request->hasFile('avatar')) {
-            // Delete old avatar if exists
-            if ($user->avatar) {
+            // Delete old avatar if exists and it's not a default URL
+            if ($user->avatar && !str_starts_with($user->avatar, 'http')) {
                 Storage::disk('public')->delete($user->avatar);
             }
 
+            // Store the uploaded file
             $path = $request->file('avatar')->store('avatars', 'public');
             
             $user->update([
@@ -53,7 +43,7 @@ class ProfileController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Avatar uploaded successfully',
+                'message' => __('messages.profile.avatar_uploaded'),
                 'avatar_url' => asset('storage/' . $path),
                 'user' => $user
             ]);

@@ -9,7 +9,7 @@ class IncomeController extends Controller
 {
     public function index(Request $request)
     {
-        $incomes = Income::where('user_id', $request->user()->id)
+        $incomes = Income::where('user_id', $request->user()->_id)
             ->orderBy('date', 'desc')
             ->get();
         return response()->json($incomes);
@@ -24,18 +24,21 @@ class IncomeController extends Controller
             'date' => 'required|date',
         ]);
 
-        $validatedData['user_id'] = $request->user()->id;
+        $validatedData['user_id'] = $request->user()->_id;
 
         $income = Income::create($validatedData);
 
-        return response()->json($income, 201);
+        return response()->json([
+            'message' => __('messages.income.created'),
+            'income' => $income
+        ], 201);
     }
 
     public function destroy(Request $request, $id)
     {
-        $income = Income::where('_id', $id)->where('user_id', $request->user()->id)->firstOrFail();
+        $income = Income::where('_id', $id)->where('user_id', $request->user()->_id)->firstOrFail();
         $income->delete();
 
-        return response()->json(['message' => 'Income deleted successfully']);
+        return response()->json(['message' => __('messages.income.deleted')]);
     }
 }

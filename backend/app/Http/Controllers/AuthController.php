@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Http\Requests\LoginRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -30,36 +31,32 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
+            'message' => __('messages.auth.register_success'),
             'access_token' => $token,
             'token_type' => 'Bearer',
             'user' => $user
         ], 201);
     }
 
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
-        $request->validate([
-            'email' => 'required|string|email',
-            'password' => 'required|string',
-        ]);
-
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
-                'message' => 'Invalid login details'
+                'message' => __('messages.auth.login_failed')
             ], 401);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
+            'message' => __('messages.auth.login_success'),
             'access_token' => $token,
             'token_type' => 'Bearer',
             'user' => $user
         ]);
     }
-
 
     public function user(Request $request)
     {
@@ -71,7 +68,7 @@ class AuthController extends Controller
         $request->user()->tokens()->delete();
 
         return response()->json([
-            'message' => 'Logged out successfully'
+            'message' => __('messages.auth.logout_success')
         ]);
     }
 }

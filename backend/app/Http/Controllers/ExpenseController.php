@@ -3,20 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\Expense;
+use App\Http\Requests\StoreExpenseRequest;
 use Illuminate\Http\Request;
 
 class ExpenseController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Expense::where('user_id', $request->user()->id);
+        $query = Expense::where('user_id', $request->user()->_id);
 
         if ($request->has('category') && $request->category !== 'All') {
             $query->where('category', $request->category);
         }
 
         if ($request->has('month')) {
-            // Very simple month filter assume YYYY-MM
             $query->where('date', 'like', $request->month . '%');
         }
 
@@ -24,32 +24,28 @@ class ExpenseController extends Controller
         return response()->json($expenses);
     }
 
-    public function store(Request $request)
+    public function store(StoreExpenseRequest $request)
     {
-        $validatedData = $request->validate([
-            'title' => 'required|string',
-            'amount' => 'required|numeric|min:0',
-            'category' => 'required|string',
-            'date' => 'required|date',
-            'description' => 'nullable|string',
-        ]);
-
-        $validatedData['user_id'] = $request->user()->id;
+        $validatedData = $request->validated();
+        $validatedData['user_id'] = $request->user()->_id;
 
         $expense = Expense::create($validatedData);
 
-        return response()->json($expense, 201);
+        return response()->json([
+            'message' => __('messages.expenses.created'),
+            'expense' => $expense
+        ], 201);
     }
 
     public function show(Request $request, $id)
     {
-        $expense = Expense::where('_id', $id)->where('user_id', $request->user()->id)->firstOrFail();
+        $expense = Expense::where('_id', $id)->where('user_id', $request->user()->_id)->firstOrFail();
         return response()->json($expense);
     }
 
     public function update(Request $request, $id)
     {
-        $expense = Expense::where('_id', $id)->where('user_id', $request->user()->id)->firstOrFail();
+        $expense = Expense::where('_id', $id)->where('user_id', $request->user()->_id)->firstOrFail();
 
         $validatedData = $request->validate([
             'title' => 'sometimes|string',
@@ -61,14 +57,17 @@ class ExpenseController extends Controller
 
         $expense->update($validatedData);
 
-        return response()->json($expense);
+        return response()->json([
+            'message' => __('messages.expenses.updated'),
+            'expense' => $expense
+        ]);
     }
 
     public function destroy(Request $request, $id)
     {
-        $expense = Expense::where('_id', $id)->where('user_id', $request->user()->id)->firstOrFail();
+        $expense = Expense::where('_id', $id)->where('user_id', $request->user()->_id)->firstOrFail();
         $expense->delete();
 
-        return response()->json(['message' => 'Expense deleted successfully']);
+        return response()->json(['message' => __('messages.expenses.deleted')]);
     }
 }
