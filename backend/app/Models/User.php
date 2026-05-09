@@ -55,7 +55,8 @@ class User extends Authenticatable
      */
     public function createToken(string $name, array $abilities = ['*'], ?\DateTimeInterface $expiresAt = null)
     {
-        $hashedToken = hash('sha256', $plainTextToken = \Illuminate\Support\Str::random(40));
+        $plainTextToken = \Illuminate\Support\Str::random(40);
+        $hashedToken = hash('sha256', $plainTextToken);
 
         $token = $this->tokens()->create([
             'name' => $name,
@@ -65,9 +66,15 @@ class User extends Authenticatable
         ]);
 
         // MongoDB might not populate the ID immediately in the model instance
-        // so we refetch it to ensure we have the _id for the plainTextToken
-        $token = \App\Models\PersonalAccessToken::where('token', $hashedToken)->first();
+        // so we refetch it if necessary to ensure we have the _id
+        if (!$token || !$token->getKey()) {
+            $token = \App\Models\PersonalAccessToken::where('token', $hashedToken)->first();
+        }
 
-        return new \Laravel\Sanctum\NewAccessToken($token, (string)$token->_id.'|'.$plainTextToken);
+        if (!$token) {
+            throw new \Exception("Failed to create personal access token.");
+        }
+
+        return new \Laravel\Sanctum\NewAccessToken($token, $token->getKey().'|'.$plainTextToken);
     }
 }

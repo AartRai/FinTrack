@@ -12,6 +12,15 @@ class PersonalAccessToken extends SanctumPersonalAccessToken
     protected $connection = 'mongodb';
     protected $collection = 'personal_access_tokens';
 
+    protected $fillable = [
+        'name',
+        'token',
+        'abilities',
+        'expires_at',
+        'tokenable_id',
+        'tokenable_type',
+    ];
+
     protected $primaryKey = '_id';
     protected $keyType = 'string';
     public $incrementing = false;
